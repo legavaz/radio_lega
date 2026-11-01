@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Радио lega</string>
+
+    <string name="search_hint">Поиск станции</string>
+    <string name="favorites">Избранное</string>
+    <string name="all_stations">Все</string>
+    <string name="russia">Россия</string>
+    <string name="loading">Загрузка станций…</string>
+    <string name="retry">Обновить</string>
+    <string name="empty">Ничего не найдено</string>
+    <string name="empty_favorites">В избранном пока пусто\nНажмите ♥ у станции, чтобы добавить</string>
+    <string name="no_network">Нет сети. Показываю сохранённый список.</string>
+    <string name="play">Играть</string>
+    <string name="pause">Пауза</string>
+    <string name="add_favorite">В избранное</string>
+    <string name="remove_favorite">Убрать из избранного</string>
+    <string name="now_playing">Сейчас играет</string>
+    <string name="sleep_timer">Таймер сна</string>
+    <string name="sleep_off">Выкл</string>
+    <string name="sleep_until">Остановит через %1$s</string>
+    <string name="sleep_timer_phase">Таймер сна, %1$s</string>
+    <string name="battery_title">Чтобы радио не замолкало в фоне</string>
+    <string name="battery_text">Система ограничивает фоновую работу приложений и может остановить воспроизведение. Разрешите работу без ограничений.</string>
+    <string name="battery_allow">Разрешить</string>
+    <string name="battery_hide">Скрыть</string>
+    <string name="stream_error">Поток недоступен — пробую резервный</string>
+    <string name="notif_channel">Воспроизведение</string>
+</resources>
