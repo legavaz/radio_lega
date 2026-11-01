@@ -16,6 +16,10 @@
 |---|---|---|
 | ![](docs/screenshot.png) | ![](docs/screenshot-favorites.png) | ![](docs/screenshot-timer.png) |
 
+Индикатор таймера в мини-плеере крупно — луна показывает текущую фазу:
+
+![](docs/screenshot-moon.png)
+
 ## Возможности
 
 **Каталог**

@@ -24,6 +24,6 @@
     <string name="battery_text">Система ограничивает фоновую работу приложений и может остановить воспроизведение. Разрешите работу без ограничений.</string>
     <string name="battery_allow">Разрешить</string>
     <string name="battery_hide">Скрыть</string>
-    <string name="stream_error">Поток недоступен — пробую резервный</string>
+    <string name="stream_error">Поток недоступен</string>
     <string name="notif_channel">Воспроизведение</string>
 </resources>
