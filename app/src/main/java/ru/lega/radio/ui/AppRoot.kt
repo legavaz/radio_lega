@@ -132,10 +132,13 @@ fun AppRoot(vm: RadioViewModel = viewModel()) {
         if (scrolledToCurrent) return@LaunchedEffect
         val id = currentId ?: return@LaunchedEffect
         val index = stations.indexOfFirst { it.id == id }
-        if (index >= 0) {
-            listState.scrollToItem(index)
-            scrolledToCurrent = true
-        }
+        if (index < 0) return@LaunchedEffect
+
+        // Прокручиваем только если станция вне экрана — иначе список «прыгает»
+        // на первое место при обычном тапе по станции.
+        val isVisible = listState.layoutInfo.visibleItemsInfo.any { it.index == index }
+        if (!isVisible) listState.scrollToItem(index)
+        scrolledToCurrent = true
     }
 
     // Экономия заряда: без исключения система глушит фоновое воспроизведение.
