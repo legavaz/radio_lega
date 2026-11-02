@@ -39,11 +39,24 @@ class SleepTimer(
 ) {
     private var job: Job? = null
 
+    /** Период, на который запущен таймер (минуты). 0 — таймер не идёт. */
+    var activeMinutes: Int = 0
+        private set
+
+    /** Идёт ли таймер сейчас. */
+    val isActive: Boolean
+        get() = job != null && activeMinutes > 0
+
     /** [minutes] <= 0 — выключить таймер. */
     fun start(minutes: Int) {
-        cancel()
-        if (minutes <= 0) return
+        stopJob()
+        if (minutes <= 0) {
+            activeMinutes = 0
+            SleepTimerState.update(null)
+            return
+        }
 
+        activeMinutes = minutes
         job = scope.launch {
             var leftMs = minutes * 60_000L
             SleepTimerState.update(leftMs)
@@ -54,15 +67,33 @@ class SleepTimer(
                 SleepTimerState.update(leftMs.coerceAtLeast(0))
             }
 
+            activeMinutes = 0
+            job = null
             SleepTimerState.update(null)
             onFinish()
         }
     }
 
+    /**
+     * Перезапуск на тот же период — используется при встряхивании.
+     * Возвращает false, если таймер не шёл.
+     */
+    fun restart(): Boolean {
+        val minutes = activeMinutes
+        if (minutes <= 0) return false
+        start(minutes)
+        return true
+    }
+
     fun cancel() {
+        stopJob()
+        activeMinutes = 0
+        SleepTimerState.update(null)
+    }
+
+    private fun stopJob() {
         job?.cancel()
         job = null
-        SleepTimerState.update(null)
     }
 
     companion object {
@@ -71,5 +102,8 @@ class SleepTimer(
 
         /** Сколько минут передаётся в [Bundle] команды. */
         const val EXTRA_MINUTES = "minutes"
+
+        /** За сколько до конца начинается плавное затухание. */
+        const val FADE_MS = 60_000L
     }
 }

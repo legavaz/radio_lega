@@ -1,5 +1,6 @@
 package ru.lega.radio.player
 
+import android.media.SoundPool
 import android.os.Bundle
 import android.util.Log
 import com.google.common.util.concurrent.Futures
@@ -21,6 +22,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import ru.lega.radio.R
+import ru.lega.radio.data.StationStore
 
 /**
  * Сервис воспроизведения.
@@ -39,6 +43,14 @@ class RadioService : MediaSessionService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var sleepTimer: SleepTimer
+    private lateinit var shakeDetector: ShakeDetector
+    private val stationStore by lazy { StationStore(this) }
+
+    private var shakeEnabled = true
+    private var maracasSoundId = 0
+    private val soundPool: SoundPool by lazy {
+        SoundPool.Builder().setMaxStreams(1).build()
+    }
 
     /** Индекс потока, который играет сейчас (для переключения на резервный). */
     private var streamIndex = 0
@@ -49,8 +61,14 @@ class RadioService : MediaSessionService() {
 
         sleepTimer = SleepTimer(serviceScope) {
             Log.i(TAG, "Таймер сна сработал — ставлю паузу")
+            player.volume = 1f
             player.pause()
+            updateShakeRegistration()
         }
+
+        shakeDetector = ShakeDetector(this) { onShake() }
+
+        maracasSoundId = soundPool.load(this, R.raw.maracas, 1)
 
         val httpFactory = DefaultHttpDataSource.Factory()
             .setUserAgent(USER_AGENT)
@@ -85,6 +103,29 @@ class RadioService : MediaSessionService() {
                 fallbackToNextStream()
             }
         })
+
+        // Плавное затухание в последнюю минуту: громкость = остаток / 60 с.
+        serviceScope.launch {
+            SleepTimerState.remainingMs.collect { remaining ->
+                val volume = when {
+                    remaining == null -> 1f
+                    remaining <= 0L -> 0f
+                    remaining < SleepTimer.FADE_MS ->
+                        remaining.toFloat() / SleepTimer.FADE_MS
+
+                    else -> 1f
+                }
+                player.volume = volume
+            }
+        }
+
+        // Настройка «продлевать таймер встряхиванием» может меняться на лету.
+        serviceScope.launch {
+            stationStore.shakeToExtend.collect { enabled ->
+                shakeEnabled = enabled
+                updateShakeRegistration()
+            }
+        }
 
         mediaSession = MediaSession.Builder(this, player)
             .setCallback(sessionCallback)
@@ -127,10 +168,13 @@ class RadioService : MediaSessionService() {
             if (minutes <= 0) {
                 Log.i(TAG, "Таймер сна выключен")
                 sleepTimer.cancel()
+                player.volume = 1f
             } else {
                 Log.i(TAG, "Таймер сна: $minutes мин")
                 sleepTimer.start(minutes)
             }
+
+            updateShakeRegistration()
 
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
         }
@@ -157,6 +201,28 @@ class RadioService : MediaSessionService() {
         player.playWhenReady = true
     }
 
+    /**
+     * Встряхивание: вернуть громкость, перезапустить таймер на тот же период
+     * и «стукнуть» маракасами, чтобы было понятно, что сброс сработал.
+     */
+    private fun onShake() {
+        if (!shakeEnabled) return
+        if (!sleepTimer.restart()) return
+
+        player.volume = 1f
+
+        if (player.isPlaying) {
+            soundPool.play(maracasSoundId, 1f, 1f, 1, 0, 1f)
+        }
+
+        Log.i(TAG, "Таймер сна продлён встряхиванием: ${sleepTimer.activeMinutes} мин")
+    }
+
+    private fun updateShakeRegistration() {
+        val shouldListen = shakeEnabled && sleepTimer.isActive && shakeDetector.supported
+        if (shouldListen) shakeDetector.start() else shakeDetector.stop()
+    }
+
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
 
     override fun onTaskRemoved(rootIntent: android.content.Intent?) {
@@ -166,6 +232,8 @@ class RadioService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        shakeDetector.stop()
+        soundPool.release()
         sleepTimer.cancel()
         serviceScope.cancel()
         mediaSession?.run {

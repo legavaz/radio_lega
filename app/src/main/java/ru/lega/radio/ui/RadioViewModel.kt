@@ -249,6 +249,14 @@ class RadioViewModel(app: Application) : AndroidViewModel(app) {
     /** Сколько осталось до остановки по таймеру сна; null — таймер выключен. */
     val sleepRemaining: StateFlow<Long?> = SleepTimerState.remainingMs
 
+    /** Продлевать таймер встряхиванием (по умолчанию включено). */
+    val shakeToExtend: StateFlow<Boolean> = store.shakeToExtend
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    fun setShakeToExtend(enabled: Boolean) {
+        viewModelScope.launch { store.setShakeToExtend(enabled) }
+    }
+
     /** [minutes] = 0 — выключить таймер сна. */
     fun setSleepTimer(minutes: Int) {
         val mediaController = controller ?: return

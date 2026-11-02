@@ -84,6 +84,17 @@ class StationStore(private val context: Context) {
         decodeUserStations(prefs[USER_STATIONS])
     }
 
+    /** Продлевать таймер сна встряхиванием (по умолчанию включено). */
+    val shakeToExtend: Flow<Boolean> = context.radioDataStore.data.map { prefs ->
+        prefs[SHAKE_TO_EXTEND] ?: true
+    }
+
+    suspend fun setShakeToExtend(enabled: Boolean) {
+        context.radioDataStore.edit { prefs ->
+            prefs[SHAKE_TO_EXTEND] = enabled
+        }
+    }
+
     suspend fun addUserStation(name: String, url: String) {
         val trimmedUrl = url.trim()
         val station = Station(
@@ -123,5 +134,6 @@ class StationStore(private val context: Context) {
         val LAST_STATION = stringPreferencesKey("last_station")
         val LAST_PLAYING = booleanPreferencesKey("last_playing")
         val USER_STATIONS = stringPreferencesKey("user_stations")
+        val SHAKE_TO_EXTEND = booleanPreferencesKey("shake_to_extend")
     }
 }

@@ -52,6 +52,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -121,6 +122,7 @@ fun AppRoot(vm: RadioViewModel = viewModel()) {
     val currentId by vm.currentId.collectAsState()
     val currentStation by vm.currentStation.collectAsState()
     val sleepRemaining by vm.sleepRemaining.collectAsState()
+    val shakeToExtend by vm.shakeToExtend.collectAsState()
     val playbackError by vm.playbackError.collectAsState()
 
     var showPlayer by rememberSaveable { mutableStateOf(false) }
@@ -290,8 +292,10 @@ fun AppRoot(vm: RadioViewModel = viewModel()) {
                     title = currentTitle.orEmpty(),
                     isPlaying = isPlaying,
                     sleepRemaining = sleepRemaining,
+                    shakeToExtend = shakeToExtend,
                     onToggle = vm::togglePlayPause,
                     onSleepTimer = vm::setSleepTimer,
+                    onShakeChange = vm::setShakeToExtend,
                     onClose = { showPlayer = false },
                 )
             }
@@ -802,8 +806,10 @@ private fun PlayerOverlay(
     title: String,
     isPlaying: Boolean,
     sleepRemaining: Long?,
+    shakeToExtend: Boolean,
     onToggle: () -> Unit,
     onSleepTimer: (Int) -> Unit,
+    onShakeChange: (Boolean) -> Unit,
     onClose: () -> Unit,
 ) {
     var chosenMinutes by rememberSaveable { mutableIntStateOf(0) }
@@ -899,6 +905,20 @@ private fun PlayerOverlay(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.shake_extend),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                Switch(checked = shakeToExtend, onCheckedChange = onShakeChange)
             }
 
             Spacer(Modifier.weight(1f))

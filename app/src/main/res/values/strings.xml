@@ -20,6 +20,7 @@
     <string name="sleep_off">Выкл</string>
     <string name="sleep_until">Остановит через %1$s</string>
     <string name="sleep_timer_phase">Таймер сна, %1$s</string>
+    <string name="shake_extend">Встряхнуть — продлить таймер</string>
     <string name="battery_title">Чтобы радио не замолкало в фоне</string>
     <string name="battery_text">Система ограничивает фоновую работу приложений и может остановить воспроизведение. Разрешите работу без ограничений.</string>
     <string name="battery_allow">Разрешить</string>
