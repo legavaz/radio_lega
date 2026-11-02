@@ -116,6 +116,7 @@ class RadioService : MediaSessionService() {
                     else -> 1f
                 }
                 player.volume = volume
+                updateShakeRegistration()
             }
         }
 
@@ -218,8 +219,19 @@ class RadioService : MediaSessionService() {
         Log.i(TAG, "Таймер сна продлён встряхиванием: ${sleepTimer.activeMinutes} мин")
     }
 
+    /**
+     * Датчик встряхивания нужен только в последнюю минуту — когда идёт
+     * затухание и есть смысл «продлить». Всё остальное время он выключен,
+     * чтобы не жечь батарею и не ловить случайные движения.
+     */
     private fun updateShakeRegistration() {
-        val shouldListen = shakeEnabled && sleepTimer.isActive && shakeDetector.supported
+        val remaining = SleepTimerState.remainingMs.value
+        val shouldListen = shakeEnabled &&
+            shakeDetector.supported &&
+            remaining != null &&
+            remaining > 0L &&
+            remaining <= SleepTimer.FADE_MS
+
         if (shouldListen) shakeDetector.start() else shakeDetector.stop()
     }
 

@@ -91,6 +91,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import ru.lega.radio.R
 import ru.lega.radio.domain.Station
+import ru.lega.radio.player.SleepTimer
+
+/** Жёлтый акцент: идёт затухание и включён датчик встряхивания. */
+private val ShakeWindowColor = Color(0xFFFFC107)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -693,6 +697,10 @@ private fun SleepTimerBadge(remainingMs: Long) {
     val fraction = moonPhaseFraction()
     val phaseDescription = stringResource(R.string.sleep_timer_phase, moonPhaseOf(fraction).title)
 
+    // Жёлтый = идёт затухание, датчик встряхивания включён: можно трясти.
+    val color = if (remainingMs <= SleepTimer.FADE_MS) ShakeWindowColor
+    else MaterialTheme.colorScheme.primary
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -701,14 +709,14 @@ private fun SleepTimerBadge(remainingMs: Long) {
     ) {
         MoonPhaseIcon(
             fraction = fraction,
-            color = MaterialTheme.colorScheme.primary,
+            color = color,
             modifier = Modifier.size(16.dp),
         )
         Spacer(Modifier.width(3.dp))
         Text(
             text = formatRemaining(remainingMs),
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary,
+            color = color,
         )
     }
 }
@@ -903,7 +911,9 @@ private fun PlayerOverlay(
                 Text(
                     text = stringResource(R.string.sleep_until, formatRemaining(remaining)),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
+                    // Жёлтый = идёт затухание и включён датчик: можно трясти.
+                    color = if (remaining <= SleepTimer.FADE_MS) ShakeWindowColor
+                    else MaterialTheme.colorScheme.primary,
                 )
             }
 
