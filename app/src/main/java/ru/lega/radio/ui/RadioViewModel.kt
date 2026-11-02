@@ -37,6 +37,7 @@ enum class CatalogFilter(val key: String, val countryCode: String?) {
     RUSSIA(key = "ru", countryCode = "RU"),
     ALL(key = "all", countryCode = null),
     FAVORITES(key = "favorites", countryCode = null),
+    LOCAL(key = "local", countryCode = null),
 }
 
 class RadioViewModel(app: Application) : AndroidViewModel(app) {
@@ -68,20 +69,33 @@ class RadioViewModel(app: Application) : AndroidViewModel(app) {
     val favorites: StateFlow<Set<String>> = store.favorites
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
+    /** Станции, добавленные вручную по URL. */
+    val userStations: StateFlow<List<Station>> = store.userStations
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Пара «избранное + свои станции» — чтобы уложиться в лимит combine. */
+    private val favoritesAndCustom = combine(favorites, userStations) { favs, custom ->
+        favs to custom
+    }
+
     val visibleStations: StateFlow<List<Station>> =
         combine(
             _filter,
             _stations,
             _knownStations,
-            favorites,
+            favoritesAndCustom,
             _query,
-        ) { filter, stations, known, favs, q ->
+        ) { filter, stations, known, favoritesAndUser, q ->
+            val (favs, custom) = favoritesAndUser
+
             val base = when (filter) {
                 CatalogFilter.FAVORITES -> favs
                     .asSequence()
                     .mapNotNull { known[it] }
                     .sortedBy { it.name.lowercase() }
                     .toList()
+
+                CatalogFilter.LOCAL -> custom
 
                 else -> stations
             }
@@ -251,8 +265,8 @@ class RadioViewModel(app: Application) : AndroidViewModel(app) {
         if (_filter.value == newFilter) return
         _filter.value = newFilter
 
-        // «Избранное» живёт на локальных данных, в сеть не ходим.
-        if (newFilter == CatalogFilter.FAVORITES) {
+        // «Избранное» и «Мои» живут на локальных данных, в сеть не ходим.
+        if (newFilter == CatalogFilter.FAVORITES || newFilter == CatalogFilter.LOCAL) {
             refreshJob?.cancel()
             _loading.value = false
             _error.value = null
@@ -272,9 +286,26 @@ class RadioViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { store.toggleFavorite(station.id) }
     }
 
+    /** Добавить свою станцию по URL и сразу переключиться на вкладку «Мои». */
+    fun addUserStation(name: String, url: String) {
+        val trimmed = url.trim()
+        if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) return
+
+        viewModelScope.launch {
+            store.addUserStation(name, trimmed)
+            _filter.value = CatalogFilter.LOCAL
+            _loading.value = false
+            _error.value = null
+        }
+    }
+
+    fun removeUserStation(id: String) {
+        viewModelScope.launch { store.removeUserStation(id) }
+    }
+
     fun refresh() {
         val filter = _filter.value
-        if (filter == CatalogFilter.FAVORITES) return
+        if (filter == CatalogFilter.FAVORITES || filter == CatalogFilter.LOCAL) return
 
         refreshJob?.cancel()
         refreshJob = viewModelScope.launch {

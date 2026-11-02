@@ -23,6 +23,8 @@ data class Station(
     val logoUrl: String? = null,
     val homepage: String? = null,
     val streams: List<Stream> = emptyList(),
+    /** true — станция добавлена вручную, а не получена из каталога. */
+    val custom: Boolean = false,
 ) {
     val subtitle: String
         get() = listOfNotNull(genre, country).joinToString(" · ")

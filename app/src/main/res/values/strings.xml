@@ -25,5 +25,17 @@
     <string name="battery_allow">Разрешить</string>
     <string name="battery_hide">Скрыть</string>
     <string name="stream_error">Поток недоступен</string>
+    <string name="my_stations">Мои</string>
+    <string name="add_station">Своя станция</string>
+    <string name="station_name">Название</string>
+    <string name="station_url">Адрес потока</string>
+    <string name="station_url_hint">http:// или https://, можно .m3u8</string>
+    <string name="station_url_error">Адрес должен начинаться с http:// или https://</string>
+    <string name="add">Добавить</string>
+    <string name="cancel">Отмена</string>
+    <string name="delete_station_title">Удалить станцию?</string>
+    <string name="delete_station_text">%1$s исчезнет из списка «Мои»</string>
+    <string name="delete">Удалить</string>
+    <string name="empty_local">Своих станций пока нет\nДобавьте по кнопке + вверху</string>
     <string name="notif_channel">Воспроизведение</string>
 </resources>

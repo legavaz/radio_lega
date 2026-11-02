@@ -8,6 +8,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +32,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -38,6 +41,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -87,6 +91,7 @@ import coil.compose.AsyncImage
 import ru.lega.radio.R
 import ru.lega.radio.domain.Station
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AppRoot(vm: RadioViewModel = viewModel()) {
     val context = LocalContext.current
@@ -145,6 +150,9 @@ fun AppRoot(vm: RadioViewModel = viewModel()) {
     var batteryBannerHidden by rememberSaveable { mutableStateOf(false) }
     val needsBatteryExemption = !isIgnoringBatteryOptimizations(context)
 
+    var showAddDialog by rememberSaveable { mutableStateOf(false) }
+    var stationToDelete by remember { mutableStateOf<Station?>(null) }
+
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Box(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize().statusBarsPadding()) {
@@ -160,6 +168,9 @@ fun AppRoot(vm: RadioViewModel = viewModel()) {
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.weight(1f),
                     )
+                    IconButton(onClick = { showAddDialog = true }) {
+                        Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.add_station))
+                    }
                     IconButton(onClick = vm::refresh) {
                         Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.retry))
                     }
@@ -177,9 +188,12 @@ fun AppRoot(vm: RadioViewModel = viewModel()) {
                     shape = RoundedCornerShape(12.dp),
                 )
 
-                Row(
-                    Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                KotlinFlowRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     FilterButton(
                         text = stringResource(R.string.russia),
@@ -193,6 +207,10 @@ fun AppRoot(vm: RadioViewModel = viewModel()) {
                         text = stringResource(R.string.favorites),
                         selected = filter == CatalogFilter.FAVORITES,
                     ) { vm.setFilter(CatalogFilter.FAVORITES) }
+                    FilterButton(
+                        text = stringResource(R.string.my_stations),
+                        selected = filter == CatalogFilter.LOCAL,
+                    ) { vm.setFilter(CatalogFilter.LOCAL) }
                 }
 
                 if (needsBatteryExemption && !batteryBannerHidden) {
@@ -220,8 +238,11 @@ fun AppRoot(vm: RadioViewModel = viewModel()) {
 
                         stations.isEmpty() -> Text(
                             text = stringResource(
-                                if (filter == CatalogFilter.FAVORITES) R.string.empty_favorites
-                                else R.string.empty,
+                                when (filter) {
+                                    CatalogFilter.FAVORITES -> R.string.empty_favorites
+                                    CatalogFilter.LOCAL -> R.string.empty_local
+                                    else -> R.string.empty
+                                },
                             ),
                             modifier = Modifier.align(Alignment.Center).padding(24.dp),
                             style = MaterialTheme.typography.bodyMedium,
@@ -236,6 +257,11 @@ fun AppRoot(vm: RadioViewModel = viewModel()) {
                                     isCurrent = station.id == currentId,
                                     onClick = { vm.play(station) },
                                     onToggleFavorite = { vm.toggleFavorite(station) },
+                                    onLongClick = if (station.custom) {
+                                        { stationToDelete = station }
+                                    } else {
+                                        null
+                                    },
                                 )
                             }
                         }
@@ -269,8 +295,107 @@ fun AppRoot(vm: RadioViewModel = viewModel()) {
                     onClose = { showPlayer = false },
                 )
             }
+
+            if (showAddDialog) {
+                AddStationDialog(
+                    onDismiss = { showAddDialog = false },
+                    onAdd = { name, url ->
+                        vm.addUserStation(name, url)
+                        showAddDialog = false
+                    },
+                )
+            }
+
+            stationToDelete?.let { station ->
+                DeleteStationDialog(
+                    station = station,
+                    onDismiss = { stationToDelete = null },
+                    onConfirm = {
+                        vm.removeUserStation(station.id)
+                        stationToDelete = null
+                    },
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun AddStationDialog(onDismiss: () -> Unit, onAdd: (String, String) -> Unit) {
+    var name by rememberSaveable { mutableStateOf("") }
+    var url by rememberSaveable { mutableStateOf("") }
+    var showError by rememberSaveable { mutableStateOf(false) }
+
+    val trimmed = url.trim()
+    val isValid = trimmed.startsWith("http://") || trimmed.startsWith("https://")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.add_station)) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(stringResource(R.string.station_name)) },
+                    singleLine = true,
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = url,
+                    onValueChange = {
+                        url = it
+                        showError = false
+                    },
+                    label = { Text(stringResource(R.string.station_url)) },
+                    placeholder = { Text(stringResource(R.string.station_url_hint)) },
+                    singleLine = true,
+                    isError = showError,
+                )
+                if (showError) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.station_url_error),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (isValid) onAdd(name, trimmed) else showError = true
+                },
+            ) {
+                Text(stringResource(R.string.add))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        },
+    )
+}
+
+@Composable
+private fun DeleteStationDialog(station: Station, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.delete_station_title)) },
+        text = { Text(stringResource(R.string.delete_station_text, station.name)) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(stringResource(R.string.delete))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        },
+    )
 }
 
 /**
@@ -326,6 +451,7 @@ private fun FilterButton(text: String, selected: Boolean, onClick: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun StationRow(
     station: Station,
@@ -333,11 +459,12 @@ private fun StationRow(
     isCurrent: Boolean,
     onClick: () -> Unit,
     onToggleFavorite: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
 ) {
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

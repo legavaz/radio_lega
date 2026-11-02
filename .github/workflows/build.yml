@@ -1,0 +1,42 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Код
+        uses: actions/checkout@v4
+
+      - name: JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-35 build-tools;35.0.0'
+
+      - name: Кэш Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Юнит-тесты
+        run: ./gradlew test --no-daemon
+
+      - name: Debug APK
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: APK в артефакты
+        uses: actions/upload-artifact@v4
+        with:
+          name: radio-lega-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
